@@ -1,0 +1,96 @@
+---
+title: "Project"
+author: "Nathan Hogg"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction
+
+
+
+### Methodology
+
+
+## Packages and Data
+```{r, message=FALSE}
+library(tidyverse)
+library(plotly)
+data <- read_csv("Fraudulent_E-Commerce_Transaction_Data.csv")
+
+```
+
+## Clean Data
+``` {r message = FALSE}
+# Strip unnecessary columns
+# cleanedData <- data %>%
+#   rowid_to_column("ID") %>%
+#   select("ID", "Transaction Amount", "Transaction Date", "Payment Method", "Product Category", "Quantity", "Customer Location", "Customer Age", "Device Used", "Is Fraudulent", "Account Age Days", "Transaction Hour")
+cleanData <- function(dataframe, colsToKeep) {
+   cleanedData <- dataframe %>%
+     rowid_to_column("ID") %>%
+     select(colsToKeep)
+   head(cleanedData)
+   return(cleanedData)
+ }
+ colsToKeep2 <- c("ID", "Transaction Amount", "Transaction Date", "Payment Method", "Product Category", "Quantity", "Customer Location", "Customer Age", "Device Used", "Is Fraudulent", "Account Age Days", "Transaction Hour")
+ cleanedData <- cleanData(data, colsToKeep=colsToKeep2)
+ cleanedData <- cleanedData%>%
+   rename(
+     Transaction_Amount=`Transaction Amount`,
+     Transaction_Date=`Transaction Date`,
+     Payment_Method=`Payment Method`,
+     Product_Category=`Product Category`,
+     Customer_Location=`Customer Location`,
+     Customer_Age=`Customer Age`,
+     Device_Used=`Device Used`,
+     Is_Fraudulent=`Is Fraudulent`,
+     Account_Age_Days=`Account Age Days`,
+     Transaction_Hour=`Transaction Hour`
+   )
+```
+
+
+## Investigative Plots
+
+``` {r}
+# Payment Method vs Is Fradulent
+PaymentFraud <- plot_ly(data = cleanedData, x = ~cleanedData$`Payment Method`, y = ~cleanedData$`Is Fraudulent`, type = "bar")
+PaymentFraud
+percentFradulentPayment <- cleanedData %>%
+  select(`Payment Method`, `Is Fraudulent`, `Product Category`, `Quantity`) %>%
+  summarise(percent_fraud = mean(`Is Fraudulent`))
+# Plot each variable vs is fraud
+fig1 <- plot_ly(data = cleanedData, x = list(cleanedData$`Payment Method`, cleanedData$`Product Category`, cleanedData$`Quantity`), y = ~`Is Fraudulent`, type = "bar")
+fig1
+
+paymentPercent <- cleanedData %>%
+  group_by(`Payment Method`) %>%
+  filter(`Is Fraudulent` == 1) %>%
+  summarise(percentFraud = (n() / nrow(cleanedData)))
+
+```
+## Generate Percentages
+``` {r}
+# percentGenerator <- function(dataset, column) {
+#   percent <- dataset %>%
+#     group_by({{column}}) %>%
+#     summarise(percentFraud = mean(.data[[column]] == 1, na.rm = TRUE))
+#     return(percent)
+# }
+# paymentFraudPercent <- percentGenerator(cleanedData, Payment_Method)
+paymentPercent <- cleanedData %>%
+  group_by(Payment_Method) %>%
+  filter(Is_Fraudulent == 1) %>%
+  summarise(percentFraud = (n() / nrow(cleanedData)))
+categoryPercent <- cleanedData %>%
+  group_by(Product_Category) %>%
+  filter(Is_Fraudulent == 1) %>%
+  summarise(percentFraud = (n() / nrow(cleanedData)))
+fig2 <- plot_ly(data = categoryPercent, x = ~Product_Category, y = categoryPercent$percentFraud, type = "bar")
+fig2
+```
