@@ -1,7 +1,7 @@
 ---
-title: "Project"
+title: "Project2"
 author: "Nathan Hogg"
-date: "`r Sys.Date()`"
+date: "2024-04-26"
 output: html_document
 ---
 
@@ -9,37 +9,24 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Introduction
-
-
-### Methodology
-
-
 ## Packages and Data
+
 ```{r, message=FALSE}
 library(tidyverse)
+library(ggplot2)
+library(patchwork)
 library(plotly)
 data <- read_csv("Fraudulent_E-Commerce_Transaction_Data.csv")
-
 ```
 
 ## Clean Data
-``` {r message = FALSE}
-# Strip unnecessary columns
-# cleanedData <- data %>%
-#   rowid_to_column("ID") %>%
-#   select("ID", "Transaction Amount", "Transaction Date", "Payment Method", "Product Category", "Quantity", "Customer Location", "Customer Age", "Device Used", "Is Fraudulent", "Account Age Days", "Transaction Hour")
+
+```{r message=FALSE}
 cleanData <- function(dataframe, colsToKeep) {
-   cleanedData <- dataframe %>%
-     rowid_to_column("ID") %>%
-     select(colsToKeep)
-   head(cleanedData)
-   return(cleanedData)
- }
- colsToKeep2 <- c("ID", "Transaction Amount", "Transaction Date", "Payment Method", "Product Category", "Quantity", "Customer Location", "Customer Age", "Device Used", "Is Fraudulent", "Account Age Days", "Transaction Hour")
- cleanedData <- cleanData(data, colsToKeep=colsToKeep2)
- cleanedData <- cleanedData%>%
-   rename(
+  cleanedData <- dataframe %>%
+    rowid_to_column("ID") %>%
+    select(colsToKeep) %>%
+    rename(
      Transaction_Amount=`Transaction Amount`,
      Transaction_Date=`Transaction Date`,
      Payment_Method=`Payment Method`,
@@ -51,51 +38,156 @@ cleanData <- function(dataframe, colsToKeep) {
      Account_Age_Days=`Account Age Days`,
      Transaction_Hour=`Transaction Hour`
    )
-```
-
-
-## Investigative Plots
-
-``` {r}
-# Payment Method vs Is Fradulent
-PaymentFraud <- plot_ly(data = cleanedData, x = ~cleanedData$`Payment Method`, y = ~cleanedData$`Is Fraudulent`, type = "bar")
-PaymentFraud
-percentFradulentPayment <- cleanedData %>%
-  select(`Payment Method`, `Is Fraudulent`, `Product Category`, `Quantity`) %>%
-  summarise(percent_fraud = mean(`Is Fraudulent`))
-# Plot each variable vs is fraud
-fig1 <- plot_ly(data = cleanedData, x = list(cleanedData$`Payment Method`, cleanedData$`Product Category`, cleanedData$`Quantity`), y = ~`Is Fraudulent`, type = "bar")
-fig1
-
-paymentPercent <- cleanedData %>%
-  group_by(`Payment Method`) %>%
-  filter(`Is Fraudulent` == 1) %>%
-  summarise(percentFraud = (n() / nrow(cleanedData)))
-
-```
-## Generate Percentages
-``` {r}
-percentGenerator <- function(dataset, column) {
-  percent <- dataset %>%
-    group_by({{column}}) %>%
-    summarise(percentFraud = mean(.data[[column]] == 1, na.rm = TRUE))
-    return(percent)
+  return(cleanedData)
 }
-paymentPercent <- cleanedData %>%
-  filter(Is_Fraudulent == 1) %>%
-  group_by(Payment_Method) %>%
-  summarise(percentFraud = (n() / nrow(cleanedData)))
-categoryPercent <- cleanedData %>%
-  group_by(Product_Category) %>%
-  filter(Is_Fraudulent == 1) %>%
-  summarise(percentFraud = (n() / nrow(cleanedData)))
-fig2 <- plot_ly(data = categoryPercent, x = ~Product_Category, y = categoryPercent$percentFraud, type = "bar")
-fig2
+colsToKeep <- c("ID", "Transaction Amount", "Transaction Date", "Payment Method", "Product Category", "Quantity", "Customer Location", "Customer Age", "Device Used", "Is Fraudulent", "Account Age Days", "Transaction Hour")
+cleanedData <-cleanData(data, colsToKeep = colsToKeep)
+```
 
-first20 <- cleanedData %>%
-  head(20)
-write.csv(first20, "C:/Users/natha/OneDrive/Desktop/Spring 24/DSCI 101/DSCI_101_Final_Project/first20.csv")
-paymentFraudPercent <- percentGenerator(first20, Payment_Method)
-print("test")
+## Transaction Amount Over Time Figure 1
+```{r}
+cleanedData %>%
+  ggplot(aes(x = Transaction_Date, y = Transaction_Amount)) +
+  geom_line() +
+  labs(
+    title = "Transaction Amount Over Time",
+    x = "Date",
+    y = "Transaction Amount (Dollars)"
+  )
+
+```
+
+## January data Figure 2
+```{r}
+# Convert date column in cleanedData to date type
+cleanedData$Transaction_Date <- as.Date(cleanedData$Transaction_Date)
+startDate <- as.Date("2024-01-01")
+endDate <- as.Date("2024-01-31")
+januaryData <- cleanedData %>%
+  filter(Transaction_Date >= startDate, Transaction_Date <= endDate)
+  # Plot January data
+januaryData %>%
+  ggplot(aes(x = Transaction_Date, Transaction_Amount)) +
+  geom_line() +
+  labs(
+    title = "Transactions from January 1, 2024 to January 31, 2024",
+    x = "Date",
+    y = "Transaction Amount (dollars)"
+  )
+
+```
+
+## January 26th data Figures 3 and 4
+```{r}
+# Filter data for January 26th
+j26Data <- januaryData %>%
+  filter(Transaction_Date == "2024-01-26")
+
+# Calculate proportions of fraudulent transactions for Product_Category
+product_proportions <- j26Data %>%
+  group_by(Product_Category) %>%
+  summarise(fraudulent_proportion = sum(Is_Fraudulent == 1) / n())
+
+# Calculate proportions of fraudulent transactions for Payment_Method
+payment_proportions <- j26Data %>%
+  group_by(Payment_Method) %>%
+  summarise(fraudulent_proportion = sum(Is_Fraudulent == 1) / n())
+
+# Create plot for Product_Category
+fig1 <- ggplot(product_proportions, aes(x = Product_Category, y = fraudulent_proportion, fill = Product_Category)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Relative Frequencies of Fraudulent Transactions by Product Category",
+       x = "Product Category",
+       y = "Proportion of Fraudulent Transactions",
+       fill = "Product Category") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Create plot for Payment_Method
+fig2 <- ggplot(payment_proportions, aes(x = Payment_Method, y = fraudulent_proportion, fill = Payment_Method)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Relative Frequencies of Fraudulent Transactions by Payment Method",
+       x = "Payment Method",
+       y = "Proportion of Fraudulent Transactions",
+       fill = "Payment Method") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+fig1 ##Figure 3
+fig2 ## Figure 4
+
+```
+
+## Health and Beauty debit card transactions on January 26th
+``` {r} 
+
+health_beauty_credit <- j26Data %>%
+  filter(Product_Category == 'health & beauty' & Payment_Method == 'debit card')
+num_transactions <- nrow(health_beauty_credit)
+print(num_transactions)
+
+num_fraudulent_transactions <- sum(health_beauty_credit$Is_Fraudulent == 1)
+percent <- (num_fraudulent_transactions / num_transactions) * 100
+print(percent)
+
+
+
+```
+
+# Health and Beauty debit card transactions over entire date range
+``` {r}
+health_beauty_debit <- cleanedData %>%
+  filter(Product_Category == 'health & beauty' & Payment_Method == 'debit card')
+num_transactions <- nrow(health_beauty_debit)
+print(num_transactions)
+
+num_fraudulent_transactions <- sum(health_beauty_debit$Is_Fraudulent == 1)
+percent <- (num_fraudulent_transactions / num_transactions) * 100
+print(percent)
+
+
+```
+
+## Debit card fraud over entire date range
+
+```{r}
+debitCardData <- cleanedData %>%
+  filter(Payment_Method == 'debit card') %>%
+  summarise(percent = mean(Is_Fraudulent == 1, na.rm = TRUE) * 100)
+debitCardData
+credit <- cleanedData %>%
+  filter(Payment_Method == 'credit card')
+num_transactions <- nrow(credit)
+print(num_transactions)
+
+num_fraudulent_transactions <- sum(credit$Is_Fraudulent == 1)
+percent <- (num_fraudulent_transactions / num_transactions) * 100
+print(percent)
+
+```
+
+## Age vs Is_Fraudulent Figure 5
+```{r}
+ageData <- cleanedData %>%
+  select(Customer_Age, Is_Fraudulent)
+summary_data <- ageData %>%
+  group_by(Customer_Age, Is_Fraudulent) %>%
+  summarise(count = n()) %>%
+  filter(!is.na(Customer_Age))
+
+# Plot as a bar plot
+plot_ly(summary_data, x = ~Customer_Age, y = ~count, color = ~factor(Is_Fraudulent), type = "bar") %>%
+  layout(title = "Fraud by Age", xaxis = list(title = "Customer Age"), yaxis = list(title = "Count"), barmode = "group")
+
+```
+
+## Middle age data
+``` {r}
+middleAgeDate <- cleanedData %>%
+  filter(Customer_Age >= 25 & Customer_Age <= 45 & Payment_Method == 'debit card')
+  
+num_fraudulent_transactions <- sum(middleAgeDate$Is_Fraudulent == 1)
+percent <- (num_fraudulent_transactions / num_transactions) * 100
+print(percent)
 
 ```
